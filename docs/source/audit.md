@@ -1,1 +1,1 @@
-../../src/buganize/api/AUDIT.md
+../../src/bugpipe/api/AUDIT.md

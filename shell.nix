@@ -11,6 +11,6 @@ pkgs.mkShell {
     export UV_PROJECT_ENVIRONMENT=venv
     uv sync --no-dev --extra cli --python ${pkgs.python314}/bin/python \
       && source venv/bin/activate \
-      && clear && buganize -h
+      && clear && bugpipe -h
   '';
 }

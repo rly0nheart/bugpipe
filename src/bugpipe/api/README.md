@@ -1,6 +1,6 @@
 # Google Issue Tracker API reference
 
-Buganize reads public Google Issue Tracker issues through the JSON API at
+Bugpipe reads public Google Issue Tracker issues through the JSON API at
 `https://issuetracker.google.com/action`. It sends requests without cookies
 or authentication tokens.
 
@@ -16,12 +16,12 @@ include `/action`.
 Search, issue fetches, comments, and updates use POST with JSON arrays.
 Components, trackers, hotlists, relationships, and the health check use GET.
 
-| Header | Value | POST | Resource GET |
-|--------|-------|------|--------------|
-| Content-Type | `application/json` | Yes | Omit |
-| Origin | `https://issuetracker.google.com` | Yes | Yes |
-| Referer | `https://issuetracker.google.com/` | Yes | Yes |
-| User-Agent | Browser or Googlebot user agent | Yes | Yes |
+| Header       | Value                              | POST | Resource GET |
+|--------------|------------------------------------|------|--------------|
+| Content-Type | `application/json`                 | Yes  | Omit         |
+| Origin       | `https://issuetracker.google.com`  | Yes  | Yes          |
+| Referer      | `https://issuetracker.google.com/` | Yes  | Yes          |
+| User-Agent   | Browser or Googlebot user agent    | Yes  | Yes          |
 
 Recorded resource GET requests returned HTTP 400 when sent with
 `Content-Type: application/json`. Omit that header for those requests.
@@ -67,8 +67,8 @@ IDs below come from the recorded API observations.
 | `365`      | Project Zero | 1638259        | https://project-zero.issues.chromium.org |
 | `391`      | OSS Fuzz     | 1638179        | https://issues.oss-fuzz.com              |
 
-Use `Buganize(trackers=None)` to search without a tracker filter, or pass names
-or IDs such as `Buganize(trackers=["chromium", "fuchsia"])`. For direct tracker
+Use `Bugpipe(trackers=None)` to search without a tracker filter, or pass names
+or IDs such as `Bugpipe(trackers=["chromium", "fuchsia"])`. For direct tracker
 lookups, pass the numeric ID to `/action/trackers/{id}`.
 
 ## Endpoints
@@ -85,13 +85,13 @@ Request shape:
 [null, null, null, null, null, TRACKER_FILTER, QUERY_PAYLOAD]
 ```
 
-| Position | Field | Type | Value |
-|----------|-------|------|-------|
-| `[5]` | tracker_filter | `list[str] \| null` | `["157"]` for Chromium, `["157", "183"]` for both, or `null` for no filter |
-| `[6][0]` | query | `str` | Search query, such as `"status:open"` |
-| `[6][1]` | reserved | `null` | Leave as `null`; recorded tests returned HTTP 400 for other values |
-| `[6][2]` | page_size | `int` | 25, 50, 100, or 250 |
-| `[6][3]` | page_token | `str`, omitted on the first page | Token from the previous response |
+| Position | Field          | Type                             | Value                                                                      |
+|----------|----------------|----------------------------------|----------------------------------------------------------------------------|
+| `[5]`    | tracker_filter | `list[str] \| null`              | `["157"]` for Chromium, `["157", "183"]` for both, or `null` for no filter |
+| `[6][0]` | query          | `str`                            | Search query, such as `"status:open"`                                      |
+| `[6][1]` | reserved       | `null`                           | Leave as `null`; recorded tests returned HTTP 400 for other values         |
+| `[6][2]` | page_size      | `int`                            | 25, 50, 100, or 250                                                        |
+| `[6][3]` | page_token     | `str`, omitted on the first page | Token from the previous response                                           |
 
 Search all trackers:
 
@@ -118,11 +118,11 @@ Request shape:
 [ISSUE_ID, DETAIL_LEVEL, FLAG_2]
 ```
 
-| Position | Field | Type | Value |
-|----------|-------|------|-------|
-| `[0]` | issue_id | `int` | Issue ID |
-| `[1]` | detail_level | `int` | Use `2` to include the body, links, and relationship graph |
-| `[2]` | flag_2 | `int` | The client uses `1`; recorded tests with 0 through 10 found no change |
+| Position | Field        | Type  | Value                                                                 |
+|----------|--------------|-------|-----------------------------------------------------------------------|
+| `[0]`    | issue_id     | `int` | Issue ID                                                              |
+| `[1]`    | detail_level | `int` | Use `2` to include the body, links, and relationship graph            |
+| `[2]`    | flag_2       | `int` | The client uses `1`; recorded tests with 0 through 10 found no change |
 
 The client sends `[issue_id, 2, 1]` without `currentTrackerId`.
 In the recorded tests, detail levels other than `2` left `TOP[37]`, `TOP[40]`,
@@ -412,7 +412,7 @@ The reference layout has 48 positions. Recorded search responses also include
 The parser reads views at `[46]` and the last modifier at `[47]`.
 Recorded search arrays can place the last modifier at `[46]`.
 The raw fields above include fields that the `Issue` model does not expose.
-See [parser.py](https://github.com/rly0nheart/buganize/blob/master/src/buganize/api/parser.py) for the fields it extracts.
+See [parser.py](https://github.com/rly0nheart/bugpipe/blob/master/src/bugpipe/api/parser.py) for the fields it extracts.
 
 ### Body entry
 

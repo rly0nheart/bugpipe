@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-09-27
+
+### Added
+
+- _-p/--proxy URL_ routes every request through a proxy. Without it, the
+  _HTTP_PROXY_ and _HTTPS_PROXY_ environment variables are honoured. The
+  library takes the same value as _Bugpipe(proxy=...)_.
+- _-r/--raw_ prints _search_ and _issues_ results as their dataclasses instead
+  of a table.
+- _trackers_ prints as a table.
+- The startup line lists the options you set to something other than their
+  default.
+
+### Changed
+
+- Renamed the project to Bugpipe. This will apply everywhere.
+- The library is synchronous. Use _with Bugpipe() as client:_ and call methods
+  directly; there is no _async_ or _await_.
+- _-t/--tracker_ belongs to _search_ and goes after the query:
+  _bugpipe search "status:open" -t chromium_. It takes the slugs listed by
+  _bugpipe trackers_ (_chromium_, not _Chromium_).
+- _-e/--export_ belongs to _search_, _issue_, _issues_, and _comments_, and
+  goes after the command.
+- _--timeout_ has the short form _-t_.
+
+### Removed
+
+- _--debug_.
+
+### Fixed
+
+- _-t/--tracker_ returned a 400 error for every value. The tracker names the
+  flag accepted were not what the tracker expected.
+
+
 ## [2.3.0] - 2026-09-24
 
 ### Changed

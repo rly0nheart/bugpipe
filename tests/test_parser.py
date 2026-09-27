@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from buganize.api.models import (
+from bugpipe.api.models import (
     Attachment,
     AttachmentRestriction,
     IssueType,
@@ -12,7 +12,7 @@ from buganize.api.models import (
     Severity,
     Status,
 )
-from buganize.api.parser import (
+from bugpipe.api.parser import (
     # The parser's helpers are name-mangled inside a class body, so they come in
     # under plain names the test classes below can call.
     __get as get,
@@ -497,8 +497,9 @@ class TestParseIssueFromEntry:
         """Parsing a very sparse entry shouldn't crash."""
         entry: list[Any] = [None] * 48
         entry[1] = 1
-        entry[2] = [None] * 22
-        entry[2][5] = "sparse"
+        details: list[Any] = [None] * 22
+        details[5] = "sparse"
+        entry[2] = details
         issue = parse_issue_from_entry(entry)
         assert issue.id == 1
         assert issue.title == "sparse"
