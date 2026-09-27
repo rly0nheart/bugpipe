@@ -1,17 +1,13 @@
 from __future__ import annotations
 
 import argparse
-import asyncio
 import typing as t
-from asyncio import Task
 from datetime import datetime
 
-from ..api.client import TRACKERS, Buganize
+from ..api.client import TRACKERS, Bugpipe
 from ..api.models import Results
-from .console import console
-from .output import export, pretty_print, print_table
-from .symbols import FAIL, OK
-from .update_checker import __pkg__, __version__, update_check
+from .term import FAIL, OK, console, export, print_out
+from .update_checker import __pkg__, __version__
 
 if t.TYPE_CHECKING:
     from rich.status import Status
@@ -30,29 +26,23 @@ def parse_args() -> argparse.Namespace:
 
     parser = argparse.ArgumentParser(
         prog=__pkg__,
-        description="Python client for the Google Issue Tracking system (Buganizer)",
+        description="Unofficial Python client for Buganizer; the Google Issue Tracking system.",
         epilog=f"© {datetime.now().astimezone().year} Ritchie Mwewa",
     )
     parser.add_argument(
-        "-t",
-        "--tracker",
-        action="append",
-        choices=[tracker["name"] for tracker in TRACKERS],
-        help="tracker name (repeatable). Defaults to all",
-    )
-    parser.add_argument(
-        "-e",
-        "--export",
-        action="append",
-        choices=["csv", "json"],
-        help="export format (repeatable)",
-    )
-    parser.add_argument(
-        "--debug",
+        "-r",
+        "--raw",
         action="store_true",
-        help="enable debug logging",
+        help="show raw output",
     )
     parser.add_argument(
+        "-p",
+        "--proxy",
+        metavar="URL",
+        help="proxy URL for all requests (e.g. http://localhost:8080)",
+    )
+    parser.add_argument(
+        "-t",
         "--timeout",
         type=int,
         default=30,
@@ -65,14 +55,30 @@ def parse_args() -> argparse.Namespace:
         action="version",
         version=f"{__pkg__} {__version__}",
     )
-    # Commands are tracker-scoped by default; non-tracker commands (e.g.
-    # ``echo``) override this so the startup banner can drop the tracker note.
-    parser.set_defaults(uses_trackers=True)
+    # Shared by commands that return issue data.
+    exportable = argparse.ArgumentParser(add_help=False)
+    exportable.add_argument(
+        "-e",
+        "--export",
+        action="append",
+        choices=["csv", "json"],
+        help="export format (repeatable)",
+    )
+
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # search
-    search_parser = subparsers.add_parser("search", help="search for issues")
-    search_parser.add_argument("query", help="Search query")
+    search_parser = subparsers.add_parser(
+        "search", parents=[exportable], help="search for issues"
+    )
+    search_parser.add_argument("query", help="search query")
+    search_parser.add_argument(
+        "-t",
+        "--tracker",
+        action="append",
+        choices=[tracker["slug"] for tracker in TRACKERS],
+        help="tracker slug (repeatable, see `bugpipe trackers`). Defaults to all",
+    )
     search_parser.add_argument(
         "-n",
         "--per-page",
@@ -93,17 +99,23 @@ def parse_args() -> argparse.Namespace:
     search_parser.set_defaults(func=cmd_search)
 
     # get
-    issue_parser = subparsers.add_parser("issue", help="get a single issue")
+    issue_parser = subparsers.add_parser(
+        "issue", parents=[exportable], help="get a single issue"
+    )
     issue_parser.add_argument("issue_id", type=int, help="issue ID")
     issue_parser.set_defaults(func=cmd_issue)
 
     # batch
-    issues_parser = subparsers.add_parser("issues", help="batch get issues")
+    issues_parser = subparsers.add_parser(
+        "issues", parents=[exportable], help="batch get issues"
+    )
     issues_parser.add_argument("issue_ids", type=int, nargs="+", help="issue IDs")
     issues_parser.set_defaults(func=cmd_issues)
 
     # comments
-    comments_parser = subparsers.add_parser("comments", help="get comments on an issue")
+    comments_parser = subparsers.add_parser(
+        "comments", parents=[exportable], help="get comments on an issue"
+    )
     comments_parser.add_argument("issue_id", type=int, help="issue ID")
     comments_parser.set_defaults(func=cmd_comments)
 
@@ -120,12 +132,33 @@ def parse_args() -> argparse.Namespace:
             "'no' means it is unreachable or returned an error."
         ),
     )
-    echo_parser.set_defaults(func=cmd_echo, uses_trackers=False)
+    echo_parser.set_defaults(func=cmd_echo)
 
-    return parser.parse_args()
+    args = parser.parse_args()
+    args.overrides = _overrides(args, parser, subparsers.choices[args.command])
+    return args
 
 
-async def cmd_search(client: Buganize, args: argparse.Namespace, status: Status):
+def _overrides(args: argparse.Namespace, *parsers: argparse.ArgumentParser) -> dict:
+    """
+    Collect the options whose value differs from their default.
+
+    :param args: Parsed arguments.
+    :param parsers: The parsers that produced them.
+    :return: Long option name (without dashes) to value.
+    """
+
+    return {
+        action.option_strings[-1].lstrip("-"): getattr(args, action.dest)
+        for parser in parsers
+        for action in parser._actions
+        if action.option_strings
+        and action.dest in args
+        and getattr(args, action.dest) != action.default
+    }
+
+
+def cmd_search(client: Bugpipe, args: argparse.Namespace, status: Status):
     """
     Handle the 'search' subcommand.
 
@@ -142,14 +175,17 @@ async def cmd_search(client: Buganize, args: argparse.Namespace, status: Status)
     status.update(
         f"[dim][bold]Searching [italic]{tracker_label}[/] issues for [bold green]{query}[/bold green]…[/dim]"
     )
-    result = await client.search(query=query, page_size=per_page)
+    result = client.search(query=query, page_size=per_page)
     issues: Results[Issue] = Results(result.issues)
 
     while limit is not None and result.has_more and len(issues) < limit:
         status.update(
             f"[dim]Collected [cyan]{len(issues)}[/] of [cyan]{limit}[/] issues…[/dim]"
         )
-        result = await client.next_page(result)
+        page = client.next_page(result)
+        if page is None:
+            break
+        result = page
         issues.extend(result.issues)
     if limit is not None:
         issues = Results(issues[:limit])
@@ -160,7 +196,8 @@ async def cmd_search(client: Buganize, args: argparse.Namespace, status: Status)
     # Rich's Status redirects sys.stdout, which makes the pager (and the
     # TTY check) see a non-tty. Stop it first so paging can take over.
     status.stop()
-    print_table(issues=issues)
+    print_out(output=issues, as_raw=args.raw)
+
     if args.export:
         export(output=issues, formats=args.export)
 
@@ -169,7 +206,7 @@ async def cmd_search(client: Buganize, args: argparse.Namespace, status: Status)
         console.log(f"~{result.total_count - len(issues)}+ more results available")
 
 
-async def cmd_issue(client: Buganize, args: argparse.Namespace, status: Status):
+def cmd_issue(client: Bugpipe, args: argparse.Namespace, status: Status):
     """
     Handle the 'issue' subcommand.
 
@@ -180,15 +217,15 @@ async def cmd_issue(client: Buganize, args: argparse.Namespace, status: Status):
 
     issue_id = args.issue_id
     status.update(f"[dim]Getting issue {issue_id}…[/]")
-    issue = await client.issue(issue_id=issue_id)
+    issue = client.issue(issue_id=issue_id)
 
     status.stop()  # restore stdout so the pager works (Status redirects it)
-    pretty_print(output=issue)
+    print_out(output=issue)
     if args.export:
         export(output=issue, formats=args.export)
 
 
-async def cmd_issues(client: Buganize, args: argparse.Namespace, status: Status):
+def cmd_issues(client: Bugpipe, args: argparse.Namespace, status: Status):
     """
     Handle the 'issues' subcommand.
 
@@ -199,15 +236,15 @@ async def cmd_issues(client: Buganize, args: argparse.Namespace, status: Status)
 
     issue_ids = args.issue_ids
     status.update(f"[dim]Getting issues {issue_ids}…[/]")
-    issues = await client.issues(issue_ids=issue_ids)
+    issues = client.issues(issue_ids=issue_ids)
 
     status.stop()  # restore stdout so the pager works (Status redirects it)
-    print_table(issues=issues)
+    print_out(output=issues)
     if args.export:
         export(output=issues, formats=args.export)
 
 
-async def cmd_comments(client: Buganize, args: argparse.Namespace, status: Status):
+def cmd_comments(client: Bugpipe, args: argparse.Namespace, status: Status):
     """
     Handle the 'comments' subcommand.
 
@@ -219,17 +256,17 @@ async def cmd_comments(client: Buganize, args: argparse.Namespace, status: Statu
     issue_id = args.issue_id
 
     status.update(status=f"[dim]Getting comments for issue {issue_id}…[/]")
-    result = await client.comments(issue_id=issue_id)
+    result = client.comments(issue_id=issue_id)
 
     status.stop()  # restore stdout so the pager works (Status redirects it)
     console.print(f"Issue #{issue_id} — {len(result.comments)} comments\n")
-    pretty_print(output=result.comments)
+    print_out(output=result.comments)
     if args.export:
         export(output=result.comments, formats=args.export)
 
 
 # noinspection PyUnusedLocal
-async def cmd_echo(client: Buganize, args: argparse.Namespace, status: Status):
+def cmd_echo(client: Bugpipe, args: argparse.Namespace, status: Status):
     """
     Handle the 'echo' subcommand: ping the backend and print its response.
 
@@ -243,27 +280,25 @@ async def cmd_echo(client: Buganize, args: argparse.Namespace, status: Status):
     """
 
     status.update("[dim]Pinging issue tracker backend…[/dim]")
-    response = await client.echo()
+    response = client.echo()
     if response == "yes":
         console.log(f"{OK} echo: {response}")
     else:
         console.log(f"{FAIL} echo: {response}")
 
 
-async def dispatch_client(args: argparse.Namespace, status: Status):
+def dispatch_client(args: argparse.Namespace, status: Status):
     """
-    Create a single client and dispatch to the chosen subcommand.
-
-    Runs the update check concurrently with the main command so it adds
-    no extra latency.
+    Check for updates, then create a single client and dispatch to the
+    chosen subcommand.
 
     :param args: Parsed arguments with ``.func`` set to the subcommand handler.
     :param status: Rich status spinner for progress updates.
     """
 
-    update_checker_task: Task = asyncio.create_task(update_check())
-
-    async with Buganize(trackers=args.tracker, timeout=args.timeout) as client:
-        await args.func(client=client, args=args, status=status)
-
-    await update_checker_task
+    with Bugpipe(
+        trackers=getattr(args, "tracker", None),
+        timeout=args.timeout,
+        proxy=args.proxy,
+    ) as client:
+        args.func(client=client, args=args, status=status)

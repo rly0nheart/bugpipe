@@ -1,28 +1,27 @@
-.. image:: https://www.gstatic.com/buganizer/img/v0/logo.svg
-   :alt: logo
-   :width: 150
-   :height: 150
-   :align: center
+Bugpipe
+==========
 
-.. centered:: Python client for the Google Issue Tracking system (Buganizer)
+Unofficial Python client for Buganizer; the Google Issue Tracking system.
+
 
 Quick Start
 -----------
 
-.. code-block:: python
-
-   from buganize import Buganize
-
-
-   async def main():
-       async with Buganize() as client:
-           result = await client.search(query="status:open priority:p1", page_size=25)
-           for issue in result.issues:
-               print(f"#{issue.id} [{issue.status.name}] {issue.title}")
-
 .. code-block:: bash
 
-   buganize search "status:open priority:p1"
+   bugpipe search "status:open"
+
+
+.. code-block:: python
+
+   from bugpipe import Bugpipe
+
+
+   with Bugpipe() as client:
+       result = client.search(query="status:open priority:p1", page_size=25)
+       for issue in result.issues:
+           print(f"#{issue.id} [{issue.status.name}] {issue.title}")
+
 
 .. toctree::
    :hidden:

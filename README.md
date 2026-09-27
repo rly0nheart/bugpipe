@@ -2,26 +2,25 @@
 <img alt="logo" src="https://www.gstatic.com/buganizer/img/v0/logo.svg" width="150" height="150">
 <br>
 <br>
-<strong>Python client for the Google Issue Tracking system (Buganizer)</strong>
+<strong><i>Unofficial Python client for Buganizer; the Google Issue Tracking system.</i></strong>
 </p>
 
 ## Quick Start
 
-```python
-from buganize import Buganize
-
-
-async def main():
-    async with Buganize() as client:
-        result = await client.search(query="status:open priority:p1", page_size=25)
-        for issue in result.issues:
-            print(f"#{issue.id} [{issue.status.name}] {issue.title}")
+```bash
+bugpipe search "status:open"
 ```
 
-```bash
-buganize search "status:open priority:p1"
+```python
+from bugpipe import Bugpipe
+
+
+with Bugpipe() as client:
+    result = client.search(query="status:open priority:p1", page_size=25)
+    for issue in result.issues:
+        print(f"#{issue.id} [{issue.status.name}] {issue.title}")
 ```
 
 ## Documentation
 
-Refer to [the docs](https://buganize.readthedocs.io) for installation, usage and api reference.
+Refer to [the docs](https://bugpipe.readthedocs.io) for installation, usage and api reference.

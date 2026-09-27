@@ -1,4 +1,4 @@
-from buganize.api.models import (
+from bugpipe.api.models import (
     AttachmentRestriction,
     Comment,
     FieldChange,
@@ -7,6 +7,7 @@ from buganize.api.models import (
     IssueUpdate,
     IssueUpdatesResult,
     Priority,
+    Results,
     SearchResult,
     Severity,
     Status,
@@ -107,11 +108,11 @@ class TestIssue:
 
 class TestSearchResult:
     def test_has_more_with_token(self):
-        result = SearchResult(issues=[], total_count=100, next_page_token="abc")
+        result = SearchResult(issues=Results(), total_count=100, next_page_token="abc")
         assert result.has_more is True
 
     def test_has_more_without_token(self):
-        result = SearchResult(issues=[], total_count=0)
+        result = SearchResult(issues=Results(), total_count=0)
         assert result.has_more is False
 
 
@@ -120,13 +121,15 @@ class TestIssueUpdatesResult:
         comment_a = Comment(issue_id=1, comment_number=1, body="first")
         comment_b = Comment(issue_id=1, comment_number=2, body="second")
 
-        updates = [
-            IssueUpdate(issue_id=1, comment=comment_b),  # newest first
-            IssueUpdate(
-                issue_id=1, field_changes=[FieldChange(field="status")]
-            ),  # no comment
-            IssueUpdate(issue_id=1, comment=comment_a),  # oldest
-        ]
+        updates = Results(
+            [
+                IssueUpdate(issue_id=1, comment=comment_b),  # newest first
+                IssueUpdate(
+                    issue_id=1, field_changes=[FieldChange(field="status")]
+                ),  # no comment
+                IssueUpdate(issue_id=1, comment=comment_a),  # oldest
+            ]
+        )
         result = IssueUpdatesResult(updates=updates, total_count=3)
 
         comments = result.comments
@@ -135,15 +138,17 @@ class TestIssueUpdatesResult:
         assert comments[1].body == "second"
 
     def test_comments_empty_when_no_comments(self):
-        updates = [
-            IssueUpdate(issue_id=1, field_changes=[FieldChange(field="priority")]),
-        ]
+        updates = Results(
+            [IssueUpdate(issue_id=1, field_changes=[FieldChange(field="priority")])]
+        )
         result = IssueUpdatesResult(updates=updates, total_count=1)
         assert result.comments == []
 
     def test_has_more(self):
-        result = IssueUpdatesResult(updates=[], total_count=0, next_page_token="tok")
+        result = IssueUpdatesResult(
+            updates=Results(), total_count=0, next_page_token="tok"
+        )
         assert result.has_more is True
 
-        result2 = IssueUpdatesResult(updates=[], total_count=0)
+        result2 = IssueUpdatesResult(updates=Results(), total_count=0)
         assert result2.has_more is False

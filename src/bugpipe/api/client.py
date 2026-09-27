@@ -17,7 +17,7 @@ if t.TYPE_CHECKING:
 
     from .models import CommentsResult, Issue, IssueUpdatesResult, Results, SearchResult
 
-__all__ = ["TRACKERS", "Buganize"]
+__all__ = ["TRACKERS", "Bugpipe"]
 
 TRACKERS: list[dict[str, str | int]] = [
     {
@@ -94,33 +94,37 @@ TRACKERS: list[dict[str, str | int]] = [
 USER_AGENT = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
 
 
-class Buganize:
+class Bugpipe:
     """
-    Async Python client for the Google Issue Tracker.
+    Python client for the Google Issue Tracker.
 
     Wraps the non-public JSON-array API at issuetracker.google.com. Supports
     searching issues, fetching individual issues, batch fetching, and
     reading comments/updates.
 
-    Can be used as an async context manager::
+    Can be used as a context manager::
 
-        async with Buganize() as client:
-            result = await client.search("priority:p1")
+        with Bugpipe() as client:
+            result = client.search("priority:p1")
 
     :param trackers: Trackers to query. Accepts names (e.g. ``["chromium"]``)
         or numeric ID strings (e.g. ``["157"]``). Names are resolved via
         ``TRACKERS``. Pass multiple to search across specific trackers.
         Defaults to None (search all public trackers).
     :param timeout: HTTP request timeout in seconds. Defaults to 30.
+    :param proxy: Proxy URL to route all requests through, e.g.
+        ``"http://localhost:8080"``. Defaults to None, which honours the
+        ``HTTP_PROXY``/``HTTPS_PROXY`` environment variables.
     """
 
     def __init__(
         self,
         trackers: list[str | int] | None = None,
         timeout: float = 30.0,
+        proxy: str | None = None,
     ):
         """
-        Configure the underlying :class:`httpx.AsyncClient` and resolve any
+        Configure the underlying :class:`httpx.Client` and resolve any
         tracker slugs to their numeric IDs. See the class docstring for
         parameter details.
         """
@@ -132,7 +136,7 @@ class Buganize:
             tracker_by_slug = {tracker["slug"]: tracker["id"] for tracker in TRACKERS}
             self.tracker_ids = [tracker_by_slug.get(name, name) for name in trackers]
 
-        self._http = httpx.AsyncClient(
+        self._http = httpx.Client(
             headers={
                 "Content-Type": "application/json",
                 "Origin": "https://issuetracker.google.com",
@@ -140,33 +144,34 @@ class Buganize:
                 "User-Agent": USER_AGENT,
             },
             timeout=timeout,
+            proxy=proxy,
         )
 
-    async def close(self):
+    def close(self):
         """
         Close the client and release its resources.
 
         Should be called when the client is no longer needed if not using
-        it as an async context manager.
+        it as a context manager.
         """
 
-        await self._http.aclose()
+        self._http.close()
 
-    async def __aenter__(self):
+    def __enter__(self):
         """
-        Async-context-manager entry. Returns ``self`` unchanged.
+        Context-manager entry. Returns ``self`` unchanged.
         """
 
         return self
 
-    async def __aexit__(self, *args):
+    def __exit__(self, *args):
         """
-        Async-context-manager exit. Closes the underlying HTTP client.
+        Context-manager exit. Closes the underlying HTTP client.
         """
 
-        await self.close()
+        self.close()
 
-    async def echo(self) -> str:
+    def echo(self) -> str:
         """
         Ping the issue tracker backend and return its raw response.
 
@@ -177,14 +182,14 @@ class Buganize:
 
         url = f"{self.base_endpoint}/yes"
         try:
-            response: Response = await self._http.get(url)
+            response: Response = self._http.get(url)
             if response.status_code == 200:
                 return response.text.strip()
             return "no"
         except httpx.HTTPError:
             return "no"
 
-    async def search(
+    def search(
         self,
         query: str,
         page_size: int = 50,
@@ -219,13 +224,13 @@ class Buganize:
         ]
         url: str = f"{self.base_endpoint}/issues/list"
 
-        response: Response = await self._http.post(url, json=request_body)
+        response: Response = self._http.post(url, json=request_body)
         response.raise_for_status()
         return parse_search_response(
             raw_text=response.text, query=query, page_size=page_size
         )
 
-    async def next_page(self, result: SearchResult) -> SearchResult | None:
+    def next_page(self, result: SearchResult) -> SearchResult | None:
         """
         Fetch the next page of a search result.
 
@@ -236,13 +241,13 @@ class Buganize:
         if not result.has_more:
             return None
 
-        return await self.search(
+        return self.search(
             query=result.query,
             page_size=result.page_size,
             page_token=result.next_page_token,
         )
 
-    async def issue(self, issue_id: int) -> Issue:
+    def issue(self, issue_id: int) -> Issue:
         """
         Fetch a single issue by its numeric ID.
 
@@ -253,11 +258,11 @@ class Buganize:
         request_body: list = [issue_id, 2, 1]
         url: str = f"{self.base_endpoint}/issues/{issue_id}/getIssue"
 
-        response: Response = await self._http.post(url=url, json=request_body)
+        response: Response = self._http.post(url=url, json=request_body)
         response.raise_for_status()
         return parse_issue_detail_response(raw_text=response.text)
 
-    async def issues(self, issue_ids: list[int]) -> Results[Issue]:
+    def issues(self, issue_ids: list[int]) -> Results[Issue]:
         """
         Fetch multiple issues by ID in a single request.
 
@@ -269,11 +274,11 @@ class Buganize:
         request_body: list = ["b.BatchGetIssuesRequest", None, None, [issue_ids, 2, 2]]
         url: str = f"{self.base_endpoint}/issues/batch"
 
-        response: Response = await self._http.post(url, json=request_body)
+        response: Response = self._http.post(url, json=request_body)
         response.raise_for_status()
         return parse_batch_response(raw_text=response.text)
 
-    async def issue_updates(self, issue_id: int) -> IssueUpdatesResult:
+    def issue_updates(self, issue_id: int) -> IssueUpdatesResult:
         """
         Fetch all updates (comments and field changes) for an issue.
 
@@ -288,12 +293,12 @@ class Buganize:
         # currentTrackerId appears unnecessary, issue IDs are unique across all trackers,
         # and resolve correctly regardless of what tracker is sent to the server.
         # params=QueryParams({"currentTrackerId": self.tracker_ids[0] if self.tracker_ids else None}),
-        response: Response = await self._http.post(url=url, json=[issue_id])
+        response: Response = self._http.post(url=url, json=[issue_id])
         response.raise_for_status()
 
         return parse_updates_response(raw_text=response.text)
 
-    async def comments(
+    def comments(
         self,
         issue_id: int,
         sort_order: str = "ASC",
@@ -318,6 +323,6 @@ class Buganize:
         if page_token:
             request_body.append(page_token)
 
-        response: Response = await self._http.post(url, json=request_body)
+        response: Response = self._http.post(url, json=request_body)
         response.raise_for_status()
         return parse_comments_response(raw_text=response.text)

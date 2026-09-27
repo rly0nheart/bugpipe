@@ -1,1 +1,1 @@
-../../src/buganize/api/README.md
+../../src/bugpipe/api/README.md

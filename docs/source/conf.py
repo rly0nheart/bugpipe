@@ -1,11 +1,12 @@
 from datetime import datetime
 
-project = "Buganize"
+project = "Bugpipe"
 copyright = f"{datetime.now().astimezone().year}, Ritchie Mwewa"
 
 extensions = [
     "myst_parser",
     "sphinx.ext.autodoc",
+    "sphinx_copybutton",
 ]
 
 source_suffix = {

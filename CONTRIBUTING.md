@@ -1,4 +1,4 @@
-# Contributing to buganize
+# Contributing to bugpipe
 
 Thanks for wanting to help. This file explains what a good pull request looks
 like here, so your work gets merged instead of sitting in review.
@@ -12,8 +12,8 @@ The project uses [uv](https://docs.astral.sh/uv/) and needs Python 3.13 or
 later.
 
 ```bash
-git clone https://github.com/rly0nheart/buganize
-cd buganize
+git clone https://github.com/rly0nheart/bugpipe
+cd bugpipe
 uv sync --group dev
 uv run pytest
 ```
@@ -75,7 +75,7 @@ Type hints go on every parameter and return. Use `X | None`, not
 `Optional[X]`.
 
 Module-level `__all__` lists stay alphabetical. If you add a public name, add
-it to `__all__` in the module and to `src/buganize/__init__.py`.
+it to `__all__` in the module and to `src/bugpipe/__init__.py`.
 
 The tracker's API is reverse engineered, and Google might change it at any
 time without telling anyone. Write parsing code that survives that. A field
@@ -91,7 +91,7 @@ Commit messages use conventional prefixes: `feat:`, `fix:`, `docs:`, `chore:`.
 
 ## Update the API reference when you change API-level code
 
-`src/buganize/api/README.md` documents the JSON API at
+`src/bugpipe/api/README.md` documents the JSON API at
 `issuetracker.google.com`. There is no official documentation, so that file is
 the only record of what the array positions mean. It has to stay true.
 
@@ -167,7 +167,7 @@ words.
 - [ ] `uv run pytest` passes.
 - [ ] `uv run black --check src tests` passes.
 - [ ] New and changed code has Sphinx docstrings.
-- [ ] `src/buganize/api/README.md` updated, if the change is API level.
+- [ ] `src/bugpipe/api/README.md` updated, if the change is API level.
 - [ ] `CHANGELOG.md` entry added, with a semver version bump.
 - [ ] `pyproject.toml` version matches the changelog.
 - [ ] You have read your own diff.

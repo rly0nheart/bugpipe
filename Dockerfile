@@ -20,4 +20,4 @@ COPY --from=builder /app .
 
 ENV PATH="/app/.venv/bin:$PATH"
 
-ENTRYPOINT ["buganize"]
+ENTRYPOINT ["bugpipe"]

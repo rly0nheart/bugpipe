@@ -9,15 +9,16 @@ from pathlib import Path
 from tempfile import gettempdir
 
 import httpx
+from rich.status import Status
 
-__pkg__ = "buganize"
+__pkg__ = "bugpipe"
 __version__ = version(__pkg__)
 
-CACHE_FILE = Path(gettempdir()) / "buganize_update_check.json"
+CACHE_FILE = Path(gettempdir()) / "bugpipe_update_check.json"
 CACHE_TTL = 3600
 
 
-async def query_pypi(package: str, include_prereleases: bool) -> dict:
+def query_pypi(package: str, include_prereleases: bool) -> dict:
     """
     Query PyPI for the latest version of a package.
 
@@ -28,10 +29,7 @@ async def query_pypi(package: str, include_prereleases: bool) -> dict:
     """
 
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"https://pypi.org/pypi/{package}/json", timeout=3
-            )
+        response = httpx.get(f"https://pypi.org/pypi/{package}/json", timeout=3)
     except httpx.HTTPError:
         return {"success": False}
     if response.status_code != 200:
@@ -55,7 +53,7 @@ async def query_pypi(package: str, include_prereleases: bool) -> dict:
     return {"success": True, "data": {"upload_time": upload_time, "version": version}}
 
 
-async def cached_query_pypi(package: str, include_prereleases: bool) -> dict:
+def cached_query_pypi(package: str, include_prereleases: bool) -> dict:
     """
     Return the PyPI lookup result, reusing a cached one under an hour old.
 
@@ -72,7 +70,7 @@ async def cached_query_pypi(package: str, include_prereleases: bool) -> dict:
     except (OSError, ValueError, KeyError, TypeError):
         pass  # missing or unreadable cache, query PyPI
 
-    data = await query_pypi(package=package, include_prereleases=include_prereleases)
+    data = query_pypi(package=package, include_prereleases=include_prereleases)
     if data.get("success"):
         try:
             CACHE_FILE.write_text(
@@ -94,15 +92,21 @@ def standard_release(version: str) -> bool:
     return version.replace(".", "").isdigit()
 
 
-async def update_check(
-    package_name: str = __pkg__, package_version: str = __version__
-) -> None:
+def check(
+    package_name: str = "buganize",
+    package_version: str = __version__,
+    status: Status | None = None,
+):
     """Print a notice when PyPI has a newer version.
 
     :param package_name: Package to check.
     :param package_version: Running version.
     """
-    data = await cached_query_pypi(
+
+    if isinstance(status, Status):
+        status.update("[dim]Checking for updates…[/dim]")
+
+    data = cached_query_pypi(
         package=package_name,
         include_prereleases=not standard_release(version=package_version),
     )
@@ -122,7 +126,7 @@ async def update_check(
         f"was released on {release_date[:10]}." if release_date else "is available."
     )
 
-    from .console import console
+    from .term import console
 
     console.log(f"[bold blue]⬆[/bold blue] {message}")
 

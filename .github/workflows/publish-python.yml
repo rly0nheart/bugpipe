@@ -17,7 +17,7 @@ jobs:
 
     environment:
       name: pypi
-      url: https://pypi.org/p/buganize
+      url: https://pypi.org/p/bugpipe
 
     steps:
       - name: Checkout repository
@@ -39,7 +39,7 @@ jobs:
         id: check_pypi
         run: |
           VERSION=${{ steps.pkg.outputs.version }}
-          if curl -s "https://pypi.org/pypi/buganize/$VERSION/json" | grep -q '"message": "Not Found"'; then
+          if curl -s "https://pypi.org/pypi/bugpipe/$VERSION/json" | grep -q '"message": "Not Found"'; then
             echo "Version $VERSION not found on PyPI, will publish"
             echo "publish=true" >> $GITHUB_OUTPUT
           else

@@ -2,17 +2,10 @@
 
 ## From PyPI
 
-`buganize` is available on PyPI as `buganize` or `buganise`. By default, the `pip install` command will only install the library without the cli util support. Below are instructions on how to install both the library and CLI utility:
-
-### Library
-```shell
-pip install buganize
-```
-
-### With the CLI
+Bugpipe is available on PyPI as `bugpipe`. Below are instructions on how to install both the library and CLI utility:
 
 ```shell
-pip install buganize[cli]
+pip install bugpipe
 ```
 
 ## Docker Image
@@ -20,10 +13,10 @@ pip install buganize[cli]
 If you prefer running the CLI utility inside a docker container, a `Dockerfile` is provided.
 
 ```shell
-docker build -t buganize-cli .
+docker build -t bugpipe-cli .
 ```
 
-> This assumes your current working directory is `buganize/`
+> This assumes your current working directory is `bugpipe/`
 
 ## Nix
 

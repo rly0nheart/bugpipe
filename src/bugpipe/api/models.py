@@ -3,8 +3,8 @@ Data models for the Google Issue Tracker.
 
 Every model here carries the fields the API sends, and writes itself out::
 
-    async with Buganize() as client:
-        issues = await client.issues([40060244, 486077869])
+    with Bugpipe() as client:
+        issues = client.issues([40060244, 486077869])
 
         issues.to_csv("issues.csv")        # one row per issue
         issues[0].to_json("issue.json")    # one object
@@ -137,6 +137,8 @@ class Exportable:
     :attr:`Issue.url` are left out.
     """
 
+    __dataclass_fields__: t.ClassVar[dict[str, t.Any]]
+
     def __rich_repr__(self) -> t.Iterator[tuple[str, t.Any]]:
         for f in fields(self):
             yield f.name, _for_console(getattr(self, f.name))
@@ -173,14 +175,14 @@ class Exportable:
         return Results([self]).to_csv(path)
 
 
-class Results[T](list[T]):
+class Results[T: Exportable](list[T]):
     """
     The list of items a read hands back. It writes itself out the way one item does.
 
     It is a plain list, so it indexes, slices, and iterates as always. It just
     also carries :meth:`to_dict`, :meth:`to_json`, and :meth:`to_csv`::
 
-        issues = await client.issues([40060244, 486077869])
+        issues = client.issues([40060244, 486077869])
 
         issues.to_csv("issues.csv")
         issues[0].to_json("first.json")
@@ -266,6 +268,7 @@ class _LenientIntEnum(enum.IntEnum):
         :return: A new member named ``<prefix><value>``.
         """
 
+        value = t.cast(int, value)
         # noinspection PyTypeChecker
         obj = int.__new__(cls, value)
         obj._name_ = f"{cls._unknown_prefix}{value}"
