@@ -1,6 +1,9 @@
-## Bugpipe
-
-Unofficial Python client for Buganizer; the Google Issue Tracking system.</strong>
+<p align="center">
+<img alt="logo" src="https://www.gstatic.com/buganizer/img/v0/logo.svg" width="150" height="150">
+<br>
+<br>
+Unofficial Python client for Buganizer; the Google Issue Tracking system.
+</p>
 
 ## Quick Start
 
