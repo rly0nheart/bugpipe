@@ -2,7 +2,7 @@
 <img alt="logo" src="https://www.gstatic.com/buganizer/img/v0/logo.svg" width="150" height="150">
 <br>
 <br>
-<strong><i>Unofficial Python client for Buganizer; the Google Issue Tracking system.</i></strong>
+Unofficial Python client for Buganizer; the Google Issue Tracking system.
 </p>
 
 ## Quick Start
