@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-09-28
+
+### Added
+
+- _--no-pager_ prints results straight to the terminal instead of paging them.
+- _-r/--raw_ also applies to _issue_, _issues_, and _comments_.
+
+### Changed
+
+- _issue_ prints as a two-column table, one row per field. _comments_ prints
+  as a table.
+- Empty values show as a dimmed _-_ in tables.
+
 ## [3.0.0] - 2026-09-27
 
 ### Added

@@ -4,15 +4,13 @@ import json
 import re
 import time
 import typing as t
-from importlib.metadata import version
 from pathlib import Path
 from tempfile import gettempdir
 
 import httpx
 from rich.status import Status
 
-__pkg__ = "bugpipe"
-__version__ = version(__pkg__)
+from . import metadata
 
 CACHE_FILE = Path(gettempdir()) / "bugpipe_update_check.json"
 CACHE_TTL = 3600
@@ -93,8 +91,8 @@ def standard_release(version: str) -> bool:
 
 
 def check(
-    package_name: str = __pkg__,
-    package_version: str = __version__,
+    package_name: str = metadata.pkg_name,
+    package_version: str = metadata.version,
     status: Status | None = None,
 ):
     """Print a notice when PyPI has a newer version.
@@ -118,15 +116,14 @@ def check(
 
     available = data["data"]["version"]
     message = (
-        f"Version {package_version} of {package_name} is outdated. "
-        f"Version {available} "
+        f"Version {package_version} of {package_name} is outdated. Version {available} "
     )
     release_date = data["data"]["upload_time"]
     message += (
         f"was released on {release_date[:10]}." if release_date else "is available."
     )
 
-    from .term import console
+    from .output import console
 
     console.log(f"[bold blue]⬆[/bold blue] {message}")
 

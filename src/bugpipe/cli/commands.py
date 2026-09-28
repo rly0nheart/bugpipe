@@ -6,15 +6,15 @@ from datetime import datetime
 
 from ..api.client import TRACKERS, Bugpipe
 from ..api.models import Results
-from .term import FAIL, OK, console, export, print_out
-from .update_checker import __pkg__, __version__
+from . import metadata
+from .output import FAIL, OK, console, export_out, print_out
 
 if t.TYPE_CHECKING:
     from rich.status import Status
 
     from ..api.models import Issue
 
-__all__ = ["dispatch_client", "parse_args"]
+__all__ = ["parse_args"]
 
 
 def parse_args() -> argparse.Namespace:
@@ -25,15 +25,20 @@ def parse_args() -> argparse.Namespace:
     """
 
     parser = argparse.ArgumentParser(
-        prog=__pkg__,
-        description="Unofficial Python client for Buganizer; the Google Issue Tracking system.",
-        epilog=f"© {datetime.now().astimezone().year} Ritchie Mwewa",
+        prog=metadata.pkg_name,
+        description=f"{metadata.description}.",
+        epilog=f"{metadata.license} License, © {datetime.now().astimezone().year} {metadata.license}",
     )
     parser.add_argument(
         "-r",
         "--raw",
         action="store_true",
         help="show raw output",
+    )
+    parser.add_argument(
+        "--no-pager",
+        action="store_true",
+        help="print results straight to the terminal instead of paging them",
     )
     parser.add_argument(
         "-p",
@@ -53,11 +58,11 @@ def parse_args() -> argparse.Namespace:
         "-v",
         "--version",
         action="version",
-        version=f"{__pkg__} {__version__}",
+        version=f"{metadata.pkg_name} {metadata.version}",
     )
     # Shared by commands that return issue data.
-    exportable = argparse.ArgumentParser(add_help=False)
-    exportable.add_argument(
+    export_parser = argparse.ArgumentParser(add_help=False)
+    export_parser.add_argument(
         "-e",
         "--export",
         action="append",
@@ -69,7 +74,7 @@ def parse_args() -> argparse.Namespace:
 
     # search
     search_parser = subparsers.add_parser(
-        "search", parents=[exportable], help="search for issues"
+        "search", parents=[export_parser], help="search for issues"
     )
     search_parser.add_argument("query", help="search query")
     search_parser.add_argument(
@@ -100,21 +105,21 @@ def parse_args() -> argparse.Namespace:
 
     # get
     issue_parser = subparsers.add_parser(
-        "issue", parents=[exportable], help="get a single issue"
+        "issue", parents=[export_parser], help="get a single issue"
     )
     issue_parser.add_argument("issue_id", type=int, help="issue ID")
     issue_parser.set_defaults(func=cmd_issue)
 
     # batch
     issues_parser = subparsers.add_parser(
-        "issues", parents=[exportable], help="batch get issues"
+        "issues", parents=[export_parser], help="batch get issues"
     )
     issues_parser.add_argument("issue_ids", type=int, nargs="+", help="issue IDs")
     issues_parser.set_defaults(func=cmd_issues)
 
     # comments
     comments_parser = subparsers.add_parser(
-        "comments", parents=[exportable], help="get comments on an issue"
+        "comments", parents=[export_parser], help="get comments on an issue"
     )
     comments_parser.add_argument("issue_id", type=int, help="issue ID")
     comments_parser.set_defaults(func=cmd_comments)
@@ -125,7 +130,7 @@ def parse_args() -> argparse.Namespace:
     # echo (health check)
     echo_parser = subparsers.add_parser(
         "echo",
-        help="check whether the issue tracker backend is reachable",
+        help="check whether buganizer is reachable",
         description=(
             "Ping the Buganizer backend (GET /action/yes) and print its "
             "response. 'yes' means the backend is reachable and healthy; "
@@ -145,11 +150,11 @@ def _overrides(args: argparse.Namespace, *parsers: argparse.ArgumentParser) -> d
 
     :param args: Parsed arguments.
     :param parsers: The parsers that produced them.
-    :return: Long option name (without dashes) to value.
+    :return: Option name as argparse stores it (``no_pager``) to value.
     """
 
     return {
-        action.option_strings[-1].lstrip("-"): getattr(args, action.dest)
+        action.dest: getattr(args, action.dest)
         for parser in parsers
         for action in parser._actions
         if action.option_strings
@@ -196,10 +201,10 @@ def cmd_search(client: Bugpipe, args: argparse.Namespace, status: Status):
     # Rich's Status redirects sys.stdout, which makes the pager (and the
     # TTY check) see a non-tty. Stop it first so paging can take over.
     status.stop()
-    print_out(output=issues, as_raw=args.raw)
+    print_out(output=issues, prettified=args.raw, no_pager=args.no_pager)
 
     if args.export:
-        export(output=issues, formats=args.export)
+        export_out(output=issues, formats=args.export)
 
     if result.has_more:
         print()
@@ -219,10 +224,10 @@ def cmd_issue(client: Bugpipe, args: argparse.Namespace, status: Status):
     status.update(f"[dim]Getting issue {issue_id}…[/]")
     issue = client.issue(issue_id=issue_id)
 
-    status.stop()  # restore stdout so the pager works (Status redirects it)
-    print_out(output=issue)
+    status.stop()
+    print_out(output=issue, prettified=args.raw, no_pager=args.no_pager)
     if args.export:
-        export(output=issue, formats=args.export)
+        export_out(output=issue, formats=args.export)
 
 
 def cmd_issues(client: Bugpipe, args: argparse.Namespace, status: Status):
@@ -238,10 +243,10 @@ def cmd_issues(client: Bugpipe, args: argparse.Namespace, status: Status):
     status.update(f"[dim]Getting issues {issue_ids}…[/]")
     issues = client.issues(issue_ids=issue_ids)
 
-    status.stop()  # restore stdout so the pager works (Status redirects it)
-    print_out(output=issues)
+    status.stop()
+    print_out(output=issues, prettified=args.raw, no_pager=args.no_pager)
     if args.export:
-        export(output=issues, formats=args.export)
+        export_out(output=issues, formats=args.export)
 
 
 def cmd_comments(client: Bugpipe, args: argparse.Namespace, status: Status):
@@ -258,11 +263,11 @@ def cmd_comments(client: Bugpipe, args: argparse.Namespace, status: Status):
     status.update(status=f"[dim]Getting comments for issue {issue_id}…[/]")
     result = client.comments(issue_id=issue_id)
 
-    status.stop()  # restore stdout so the pager works (Status redirects it)
+    status.stop()
     console.print(f"Issue #{issue_id} — {len(result.comments)} comments\n")
-    print_out(output=result.comments)
+    print_out(output=result.comments, prettified=args.raw, no_pager=args.no_pager)
     if args.export:
-        export(output=result.comments, formats=args.export)
+        export_out(output=result.comments, formats=args.export)
 
 
 # noinspection PyUnusedLocal
@@ -270,35 +275,18 @@ def cmd_echo(client: Bugpipe, args: argparse.Namespace, status: Status):
     """
     Handle the 'echo' subcommand: ping the backend and print its response.
 
-    Prints a green ``✔`` when the backend is reachable and healthy
-    (``echo: yes``), or a red ``✘`` when it is unreachable or returned
-    an error (``echo: no``).
+    Prints ``echo: yes`` when the backend is reachable and healthy
+    , or ``echo: no`` when it is unreachable or returned
+    an error.
 
     :param client: Shared API client instance.
     :param args: Parsed arguments (unused).
     :param status: Rich status spinner for progress updates.
     """
 
-    status.update("[dim]Pinging issue tracker backend…[/dim]")
+    status.update("[dim]Pinging buganizer…[/dim]")
     response = client.echo()
     if response == "yes":
         console.log(f"{OK} echo: {response}")
     else:
         console.log(f"{FAIL} echo: {response}")
-
-
-def dispatch_client(args: argparse.Namespace, status: Status):
-    """
-    Check for updates, then create a single client and dispatch to the
-    chosen subcommand.
-
-    :param args: Parsed arguments with ``.func`` set to the subcommand handler.
-    :param status: Rich status spinner for progress updates.
-    """
-
-    with Bugpipe(
-        trackers=getattr(args, "tracker", None),
-        timeout=args.timeout,
-        proxy=args.proxy,
-    ) as client:
-        args.func(client=client, args=args, status=status)

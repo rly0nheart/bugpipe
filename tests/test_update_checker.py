@@ -21,7 +21,7 @@ def test_update_check_caches_pypi_lookup_for_an_hour(tmp_path):
     with (
         patch.object(update_checker, "CACHE_FILE", tmp_path / "cache.json"),
         patch.object(update_checker, "query_pypi", new=query),
-        patch.dict(sys.modules, {"bugpipe.cli.term": console}),
+        patch.dict(sys.modules, {"bugpipe.cli.output": console}),
     ):
         for _ in range(2):
             update_checker.check(

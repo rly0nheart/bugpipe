@@ -1,14 +1,32 @@
+import argparse
 import logging
 import sys
 from datetime import datetime
 
 import httpx
 from rich.logging import RichHandler
+from rich.status import Status
 
-from ..api.client import TRACKERS
-from . import update_checker
-from .cmd import dispatch_client, parse_args
-from .term import FAIL, INFO, WARN, console, print_out
+from ..api.client import TRACKERS, Bugpipe
+from . import metadata, update_checker
+from .commands import parse_args
+from .output import FAIL, INFO, WARN, console, print_out
+
+
+def create_client(args: argparse.Namespace, status: Status):
+    """
+    Create a client and dispatch to the chosen subcommand.
+
+    :param args: Parsed arguments with ``.func`` set to the subcommand handler.
+    :param status: Rich status spinner for progress updates.
+    """
+
+    with Bugpipe(
+        trackers=getattr(args, "tracker", None),
+        timeout=args.timeout,
+        proxy=args.proxy,
+    ) as client:
+        args.func(client=client, args=args, status=status)
 
 
 def format_option(value) -> str:
@@ -35,7 +53,7 @@ def start():
     args = parse_args()
 
     if args.command == "trackers":
-        print_out(output=TRACKERS, as_raw=args.raw)
+        print_out(output=TRACKERS, prettified=args.raw, no_pager=args.no_pager)
         console.print(f"\n{len(TRACKERS)} trackers available")
         return
 
@@ -51,12 +69,12 @@ def start():
         )
         overrides_text: str = f" ({overrides})" if overrides else ""
         console.log(
-            f"{INFO} Started bugpipe CLI {update_checker.__version__[:3]}{overrides_text} "
+            f"{INFO} Started bugpipe CLI {metadata.version[:3]}{overrides_text} "
             f"at {datetime.now().astimezone().strftime('%x %X')}"
         )
         with console.status("[dim]Initialising…[/dim]") as status:
             update_checker.check(status=status)
-            dispatch_client(args=args, status=status)
+            create_client(args=args, status=status)
     except KeyboardInterrupt:
         console.log(f"{WARN} User interrupted ([bold yellow]CTRL+C[/bold yellow])")
         sys.exit(0)
