@@ -27,7 +27,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog=metadata.pkg_name,
         description=f"{metadata.description}.",
-        epilog=f"{metadata.license} License, © {datetime.now().astimezone().year} {metadata.license}",
+        epilog=f"{metadata.license} © {datetime.now().astimezone().year} {metadata.author}",
     )
     parser.add_argument(
         "-r",
